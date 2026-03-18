@@ -83,6 +83,11 @@ jobs:
     runs-on: ubuntu-latest
     needs: [backend, frontend]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    services:
+      mongodb:
+        image: mongo:latest
+        ports:
+          - 27017:27017
 
     steps:
       - name: Checkout code
@@ -106,11 +111,13 @@ jobs:
         working-directory: e2e
 
       - name: Start backend server
-        run: npm start &
+        run: |
+          node seeder.js
+          npm start &
         working-directory: backend
         env:
-          MONGO_URI: ${{ secrets.MONGO_URI }}
-          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          MONGO_URI: ${{ secrets.MONGO_URI || 'mongodb://127.0.0.1:27017/avoza_test' }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET || 'super_secret_ci_key' }}
           PORT: 5001
 
       - name: Start frontend dev server
