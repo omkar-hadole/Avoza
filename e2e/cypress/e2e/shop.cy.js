@@ -29,7 +29,7 @@ describe('Avoza Shop & Flow', () => {
     cy.visit('/products');
     cy.contains('Minimalist Leather Tote').click();
     
-    cy.contains('Add to Bag').click();
+    cy.contains('Add to Cart').click();
 
     // Verify item is in cart
     cy.visit('/cart');
