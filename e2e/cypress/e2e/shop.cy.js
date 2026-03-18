@@ -34,6 +34,6 @@ describe('Avoza Shop & Flow', () => {
     // Verify item is in cart
     cy.visit('/cart');
     cy.contains('Minimalist Leather Tote').should('be.visible');
-    cy.contains('Proceed to Checkout').should('be.visible');
+    cy.contains('Proceed to Checkout').scrollIntoView().should('be.visible');
   });
 });
