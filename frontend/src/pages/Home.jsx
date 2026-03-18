@@ -19,7 +19,7 @@ const Home = () => {
       <section className="relative h-[85vh] w-full flex items-center justify-center overflow-hidden">
         <div className="absolute inset-0 z-0">
           <img 
-            src="https://images.unsplash.com/photo-1490481651871-ab68de25d43d?q=80&w=2670&auto=format&fit=crop" 
+            src="https://images.unsplash.com/photo-1494438639946-1ebd1d20bf85?q=80&w=2667&auto=format&fit=crop" 
             alt="Hero Background" 
             className="w-full h-full object-cover opacity-90"
           />
