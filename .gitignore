@@ -1,0 +1,12 @@
+node_modules/
+.env
+.DS_Store
+dist/
+dist-ssr/
+*.local
+e2e/cypress/screenshots/
+e2e/cypress/videos/
+backend/node_modules/
+frontend/node_modules/
+e2e/node_modules/
+.cache/
