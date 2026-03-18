@@ -1,0 +1,23 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-white text-[#0f0f0f] antialiased selection:bg-[#d4af37] selection:text-white;
+  }
+}
+
+@layer utilities {
+  .text-luxury {
+    @apply font-playfair tracking-wide;
+  }
+  
+  .font-sans {
+    @apply font-inter;
+  }
+
+  .premium-shadow {
+    box-shadow: 0 10px 40px -10px rgba(0,0,0,0.08);
+  }
+}
