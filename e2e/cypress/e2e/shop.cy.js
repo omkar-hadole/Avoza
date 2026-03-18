@@ -10,16 +10,16 @@ describe('Avoza Shop & Flow', () => {
     cy.visit('/products');
     cy.contains('All Products').should('be.visible');
     
-    // Test the search filter functionality
-    cy.get('input[placeholder="Search products..."]').type('Tote');
+    // Test the category filter functionality instead of search bar
+    cy.get('button').contains('Bags').click();
     cy.contains('Minimalist Leather Tote').should('be.visible');
   });
 
   it('Should login and add to cart', () => {
     // Note: Depends on backend seeder data running
     cy.visit('/login');
-    cy.get('input[name="email"]').type('admin@avoza.com');
-    cy.get('input[name="password"]').type('password123');
+    cy.get('input[name="email"]').clear().type('admin@avoza.com');
+    cy.get('input[name="password"]').clear().type('password123');
     cy.get('button').contains('Sign In').click();
 
     // After login it should redirect to home or stay logged in
