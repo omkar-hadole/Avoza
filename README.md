@@ -22,3 +22,4 @@ Avoza is structured around a typical MERN (MongoDB, Express, React, Node) multi-
 1. **Unit Testing:** Verified via `Jest` (Backend logic parsing) and `Vitest` with React Testing Library (Frontend logic parsing).
 2. **Integration Testing:** Verified using `Supertest` hooked directly to Express and `MongoDB Memory Server` to simulate genuine persistence without littering local or remote clusters. 
 3. **E2E Testing:** Handled by Cypress headless nodes tracking actual pathing heuristics.
+ 
