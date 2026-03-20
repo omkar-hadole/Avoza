@@ -32,7 +32,7 @@ jobs:
             set -e
 
             echo "=== Navigating to project directory ==="
-            cd /home/ubuntu/avoza || { echo "Project dir not found"; exit 1; }
+            cd /home/ubuntu/Avoza || cd ~/Avoza || cd ~/avoza || { echo "Project dir not found. Did you clone the repository on the EC2 instance?"; exit 1; }
 
             echo "=== Pulling latest code ==="
             git pull origin main
