@@ -29,22 +29,20 @@ jobs:
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
-            set -ex
+            set -x
 
             echo "=== Navigating to project directory ==="
             pwd
             ls -la
-            if [ -d "Avoza" ]; then
-              cd Avoza
-            elif [ -d "avoza" ]; then
-              cd avoza
-            else
-              echo "Project dir not found. Cloning the repository..."
-              git clone https://github.com/omkar-hadole/Avoza.git Avoza
-              cd Avoza
-            fi
+            
+            # Navigate to the repo, or fail clearly
+            cd Avoza || cd avoza || { 
+              echo "❌ ERROR: Project directory not found!"
+              echo "Please SSH into your EC2 instance manually and run:"
+              echo "git clone https://github.com/omkar-hadole/Avoza.git"
+              exit 1
+            }
 
-            pwd
             echo "=== Pulling latest code ==="
             git pull origin main
 
