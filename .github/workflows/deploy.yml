@@ -1,8 +1,7 @@
 name: Deploy to AWS EC2
 
 on:
-  push:
-    branches: [main]
+  workflow_dispatch:
 
 jobs:
   deploy:
@@ -37,6 +36,11 @@ jobs:
 
             echo "=== Pulling latest code ==="
             git pull origin main
+
+            echo "=== Setting up environment variables ==="
+            cat << 'EOF' > backend/.env
+            ${{ secrets.SERVER_ENV }}
+            EOF
 
             echo "=== Installing backend dependencies ==="
             cd backend
