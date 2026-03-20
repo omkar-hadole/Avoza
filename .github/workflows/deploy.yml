@@ -29,9 +29,11 @@ jobs:
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
-            set -e
+            set -ex
 
             echo "=== Navigating to project directory ==="
+            pwd
+            ls -la
             if [ -d "Avoza" ]; then
               cd Avoza
             elif [ -d "avoza" ]; then
@@ -42,6 +44,7 @@ jobs:
               cd Avoza
             fi
 
+            pwd
             echo "=== Pulling latest code ==="
             git pull origin main
 
