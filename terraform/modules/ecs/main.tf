@@ -47,10 +47,6 @@ resource "aws_security_group" "ecs_tasks" {
   }
 
   tags = local.common_tags
-
-  lifecycle {
-    create_before_destroy = true
-  }
 }
 
 ###############################################################################
