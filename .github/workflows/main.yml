@@ -271,8 +271,7 @@ jobs:
           terraform plan \
             -var="image_tag=latest" \
             -out=tfplan \
-            -no-color 2>&1 | tee plan.txt
-        continue-on-error: true
+            -no-color
 
       - name: "📊 Comment plan on PR"
         uses: actions/github-script@v7
@@ -290,7 +289,6 @@ jobs:
             });
 
       - name: "🚀 Terraform Apply"
-        if: steps.plan.outcome == 'success'
         run: terraform apply -auto-approve tfplan
 
       - name: "📤 Export Terraform outputs"
