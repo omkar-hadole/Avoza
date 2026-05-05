@@ -8,18 +8,15 @@
 #               → Docker Build & Push to ECR → Deploy to ECS Fargate
 #
 # Required GitHub Secrets:
-#   AWS_ACCESS_KEY_ID         — AWS Academy key
-#   AWS_SECRET_ACCESS_KEY     — AWS Academy secret
-#   AWS_SESSION_TOKEN         — AWS Academy session token
-#   AWS_REGION                — e.g. us-east-1
-#   AWS_ACCOUNT_ID            — 12-digit AWS account number
-#   MONGO_URI                 — MongoDB Atlas connection string
-#   JWT_SECRET                — JWT signing secret
-#   VPC_ID                    — default VPC ID in your AWS Academy account
-#   SUBNET_IDS                — comma-separated subnet IDs, e.g. subnet-aaa,subnet-bbb
+#   AWS_ACCESS_KEY_ID     — AWS Academy key
+#   AWS_SECRET_ACCESS_KEY — AWS Academy secret
+#   AWS_SESSION_TOKEN     — AWS Academy session token
+#   AWS_REGION            — e.g. us-east-1
+#   AWS_ACCOUNT_ID        — 12-digit AWS account number
+#   APP_ENV               — paste the full contents of your backend/.env file here
 #
 # Optional:
-#   TF_BACKEND_BUCKET         — defaults to "avoza-tfstate"
+#   TF_BACKEND_BUCKET     — defaults to "avoza-tfstate"
 ###############################################################################
 
 name: "🚀 Avoza CI/CD Pipeline"
@@ -59,15 +56,14 @@ jobs:
       run:
         working-directory: backend
 
-    env:
-      NODE_ENV:   test
-      JWT_SECRET: test_secret_for_ci
-      MONGO_URI:  ${{ secrets.MONGO_URI }}
-      PORT:       5001
-
     steps:
       - name: "⬇️  Checkout"
         uses: actions/checkout@v4
+
+      - name: "📝 Write .env from APP_ENV secret"
+        run: printf '%s' "$APP_ENV" > .env
+        env:
+          APP_ENV: ${{ secrets.APP_ENV }}
 
       - name: "🟢 Setup Node ${{ env.NODE_VERSION }}"
         uses: actions/setup-node@v4
@@ -160,8 +156,7 @@ jobs:
     env:
       TF_INPUT: "false"
       TF_VAR_aws_region: ${{ secrets.AWS_REGION }}
-      TF_VAR_mongo_uri:  ${{ secrets.MONGO_URI }}
-      TF_VAR_jwt_secret: ${{ secrets.JWT_SECRET }}
+      # MONGO_URI and JWT_SECRET are parsed from APP_ENV in a step below
 
     defaults:
       run:
@@ -194,14 +189,29 @@ jobs:
       - name: "🔍 Validate required secrets"
         run: |
           MISSING=""
-          [ -z "${{ secrets.MONGO_URI }}" ]  && MISSING="$MISSING MONGO_URI"
-          [ -z "${{ secrets.JWT_SECRET }}" ] && MISSING="$MISSING JWT_SECRET"
+          [ -z "${{ secrets.APP_ENV }}" ] && MISSING="$MISSING APP_ENV"
           if [ -n "$MISSING" ]; then
             echo "Missing required GitHub Secrets:$MISSING"
             echo "Go to: Settings > Secrets and Variables > Actions"
             exit 1
           fi
           echo "All required secrets are present."
+        working-directory: .
+
+      - name: "🔧 Parse APP_ENV into Terraform vars"
+        run: |
+          ENV_CONTENT="$APP_ENV"
+          MONGO=$(echo "$ENV_CONTENT" | grep '^MONGO_URI=' | head -1 | cut -d= -f2-)
+          JWT=$(echo "$ENV_CONTENT" | grep '^JWT_SECRET=' | head -1 | cut -d= -f2- | tr -d "'")
+          if [ -z "$MONGO" ] || [ -z "$JWT" ]; then
+            echo "APP_ENV must contain MONGO_URI and JWT_SECRET lines."
+            exit 1
+          fi
+          echo "TF_VAR_mongo_uri=$MONGO" >> $GITHUB_ENV
+          echo "TF_VAR_jwt_secret=$JWT" >> $GITHUB_ENV
+          echo "Parsed MONGO_URI and JWT_SECRET from APP_ENV."
+        env:
+          APP_ENV: ${{ secrets.APP_ENV }}
         working-directory: .
 
       - name: "🪣 Bootstrap Terraform state bucket (idempotent)"
