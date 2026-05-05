@@ -294,9 +294,22 @@ jobs:
       - name: "📤 Export Terraform outputs"
         id: tf-outputs
         run: |
-          echo "ecr_url=$(terraform output -raw ecr_repository_url)" >> $GITHUB_OUTPUT
-          echo "ecs_cluster=$(terraform output -raw ecs_cluster_name)" >> $GITHUB_OUTPUT
-          echo "ecs_service=$(terraform output -raw ecs_service_name)" >> $GITHUB_OUTPUT
+          echo "Dumping all terraform outputs for debugging:"
+          terraform output
+          
+          echo "Extracting raw outputs..."
+          ECR_URL=$(terraform output -raw ecr_repository_url)
+          ECS_CLUSTER=$(terraform output -raw ecs_cluster_name)
+          ECS_SERVICE=$(terraform output -raw ecs_service_name)
+          
+          if [ -z "$ECR_URL" ]; then
+            echo "❌ ERROR: ecr_repository_url is empty!"
+            exit 1
+          fi
+          
+          echo "ecr_url=$ECR_URL" >> $GITHUB_OUTPUT
+          echo "ecs_cluster=$ECS_CLUSTER" >> $GITHUB_OUTPUT
+          echo "ecs_service=$ECS_SERVICE" >> $GITHUB_OUTPUT
 
     outputs:
       ecr_url:     ${{ steps.tf-outputs.outputs.ecr_url }}
