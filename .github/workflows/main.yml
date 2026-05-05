@@ -159,12 +159,9 @@ jobs:
 
     env:
       TF_INPUT: "false"
-      # Pass secrets as TF_VAR_* so they never touch tfvars files
-      TF_VAR_aws_region:      ${{ secrets.AWS_REGION }}
-      TF_VAR_mongo_uri:       ${{ secrets.MONGO_URI }}
-      TF_VAR_jwt_secret:      ${{ secrets.JWT_SECRET }}
-      TF_VAR_vpc_id:          ${{ secrets.VPC_ID }}
-      TF_VAR_subnet_ids:      '["${{ secrets.SUBNET_IDS }}"]'  # JSON array
+      TF_VAR_aws_region: ${{ secrets.AWS_REGION }}
+      TF_VAR_mongo_uri:  ${{ secrets.MONGO_URI }}
+      TF_VAR_jwt_secret: ${{ secrets.JWT_SECRET }}
 
     defaults:
       run:
@@ -193,6 +190,19 @@ jobs:
           path: terraform/.terraform
           key: terraform-${{ runner.os }}-${{ hashFiles('terraform/.terraform.lock.hcl') }}
           restore-keys: terraform-${{ runner.os }}-
+
+      - name: "🔍 Validate required secrets"
+        run: |
+          MISSING=""
+          [ -z "${{ secrets.MONGO_URI }}" ]  && MISSING="$MISSING MONGO_URI"
+          [ -z "${{ secrets.JWT_SECRET }}" ] && MISSING="$MISSING JWT_SECRET"
+          if [ -n "$MISSING" ]; then
+            echo "Missing required GitHub Secrets:$MISSING"
+            echo "Go to: Settings > Secrets and Variables > Actions"
+            exit 1
+          fi
+          echo "All required secrets are present."
+        working-directory: .
 
       - name: "🪣 Bootstrap Terraform state bucket (idempotent)"
         run: |
@@ -273,13 +283,11 @@ jobs:
           echo "ecr_url=$(terraform output -raw ecr_repository_url)" >> $GITHUB_OUTPUT
           echo "ecs_cluster=$(terraform output -raw ecs_cluster_name)" >> $GITHUB_OUTPUT
           echo "ecs_service=$(terraform output -raw ecs_service_name)" >> $GITHUB_OUTPUT
-          echo "alb_dns=$(terraform output -raw alb_dns_name)" >> $GITHUB_OUTPUT
 
     outputs:
       ecr_url:     ${{ steps.tf-outputs.outputs.ecr_url }}
       ecs_cluster: ${{ steps.tf-outputs.outputs.ecs_cluster }}
-      ecs_service:  ${{ steps.tf-outputs.outputs.ecs_service }}
-      alb_dns:     ${{ steps.tf-outputs.outputs.alb_dns }}
+      ecs_service: ${{ steps.tf-outputs.outputs.ecs_service }}
 
 ###############################################################################
 # ── PHASE 3 + 4: Docker Build, Push & ECS Deploy ─────────────────────────────
@@ -393,24 +401,24 @@ jobs:
             --output table
 
           echo ""
-          echo "🌐 Application is reachable at:"
-          echo "   http://${{ needs.terraform.outputs.alb_dns }}"
+          echo "Tasks are accessible via their public IPs (port 5000)."
+          echo "Find IPs: AWS Console > ECS > ${{ needs.terraform.outputs.ecs_cluster }} > Tasks > public IP"
 
       # ── Summary ───────────────────────────────────────────────────────────────
       - name: "📊 Job summary"
         if: always()
         run: |
           cat >> $GITHUB_STEP_SUMMARY << EOF
-          ## 🚀 Avoza Deployment Summary
+          ## Avoza Deployment Summary
 
-          | Field        | Value |
+          | Field | Value |
           |---|---|
-          | **Image Tag** | \`${{ steps.tag.outputs.tag }}\` |
-          | **ECR Image** | \`${{ needs.terraform.outputs.ecr_url }}:${{ steps.tag.outputs.tag }}\` |
-          | **ECS Cluster** | \`${{ needs.terraform.outputs.ecs_cluster }}\` |
-          | **ECS Service** | \`${{ needs.terraform.outputs.ecs_service }}\` |
-          | **ALB URL** | http://${{ needs.terraform.outputs.alb_dns }} |
-          | **Commit** | [${{ github.sha }}](${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}) |
+          | **Image Tag** | ${{ steps.tag.outputs.tag }} |
+          | **ECR Image** | ${{ needs.terraform.outputs.ecr_url }}:${{ steps.tag.outputs.tag }} |
+          | **ECS Cluster** | ${{ needs.terraform.outputs.ecs_cluster }} |
+          | **ECS Service** | ${{ needs.terraform.outputs.ecs_service }} |
+          | **Access** | Task public IP on port 5000 (ECS Console > Tasks) |
+          | **Commit** | ${{ github.sha }} |
           EOF
 
 ###############################################################################
