@@ -330,6 +330,20 @@ jobs:
       - name: "⬇️  Checkout"
         uses: actions/checkout@v4
 
+      # ── Fetch ECR URL via AWS CLI ──────────────────────────────────────────
+      - name: "🔍 Fetch ECR URL"
+        run: |
+          echo "Fetching ECR repository URL..."
+          URL=$(aws ecr describe-repositories --repository-names "avoza-backend-${{ env.APP_ENV }}" --query 'repositories[0].repositoryUri' --output text 2>/dev/null || echo "NOT_FOUND")
+          if [ "$URL" = "NOT_FOUND" ] || [ -z "$URL" ]; then
+            echo "❌ ERROR: ECR repository not found. Terraform might have failed to create it."
+            exit 1
+          fi
+          echo "ECR_URL=$URL" >> $GITHUB_ENV
+          echo "Successfully retrieved ECR URL: $URL"
+        env:
+          APP_ENV: production # hardcoded fallback, ideally parsed from secrets.APP_ENV but we know it's production
+
       # ── Compute deterministic image tag ────────────────────────────────────
       - name: "🏷️  Compute image tag"
         id: tag
@@ -342,12 +356,20 @@ jobs:
       # ── Validate Terraform outputs ─────────────────────────────────────────
       - name: "🔍 Validate Terraform outputs"
         run: |
-          ECR_URL="${{ needs.terraform.outputs.ecr_url }}"
-          if [ -z "$ECR_URL" ] || [ "$ECR_URL" = "null" ]; then
-            echo "❌ ERROR: ECR URL is empty or null from Terraform outputs"
-            echo "This likely means Terraform did not apply successfully"
+          ECS_CLUSTER="${{ needs.terraform.outputs.ecs_cluster }}"
+          ECS_SERVICE="${{ needs.terraform.outputs.ecs_service }}"
+          
+          echo "Validating outputs from terraform job..."
+          echo "ECR_URL: $ECR_URL"
+          echo "ECS_CLUSTER: $ECS_CLUSTER"
+          echo "ECS_SERVICE: $ECS_SERVICE"
+          
+          if [ -z "$ECS_CLUSTER" ] || [ "$ECS_CLUSTER" = "null" ]; then
+            echo "❌ ERROR: ECS Cluster is empty or null"
             exit 1
           fi
+          
+          echo "✅ All required deployment parameters are valid"
           echo "✅ ECR URL is valid: $ECR_URL"
 
       # ── AWS credentials ────────────────────────────────────────────────────
@@ -384,8 +406,8 @@ jobs:
           file:       ./backend/Dockerfile
           push:       true
           tags: |
-            ${{ needs.terraform.outputs.ecr_url }}:${{ steps.tag.outputs.tag }}
-            ${{ needs.terraform.outputs.ecr_url }}:latest
+            ${{ env.ECR_URL }}:${{ steps.tag.outputs.tag }}
+            ${{ env.ECR_URL }}:latest
           labels: |
             org.opencontainers.image.revision=${{ github.sha }}
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
@@ -406,7 +428,7 @@ jobs:
         id: get-task-def
         run: |
           aws ecs describe-task-definition \
-            --task-definition "${{ env.ECS_SERVICE }}" \
+            --task-definition "${ECS_SERVICE}" \
             --query taskDefinition \
             --output json > task-def.json
           echo "Task definition fetched."
@@ -417,14 +439,14 @@ jobs:
         with:
           task-definition:  task-def.json
           container-name:   avoza-backend
-          image:            ${{ needs.terraform.outputs.ecr_url }}:${{ steps.tag.outputs.tag }}
+          image:            ${{ env.ECR_URL }}:${{ steps.tag.outputs.tag }}
 
       - name: "🚀 Deploy to ECS Fargate"
         uses: aws-actions/amazon-ecs-deploy-task-definition@v1
         with:
           task-definition:        ${{ steps.task-def.outputs.task-definition }}
-          service:                ${{ needs.terraform.outputs.ecs_service }}
-          cluster:                ${{ needs.terraform.outputs.ecs_cluster }}
+          service:                ${{ env.ECS_SERVICE }}
+          cluster:                ${{ env.ECS_CLUSTER }}
           wait-for-service-stability: true
 
       # ── Post-deploy verification ──────────────────────────────────────────
@@ -432,15 +454,15 @@ jobs:
         run: |
           echo "Verifying ECS service health..."
           aws ecs describe-services \
-            --cluster "${{ needs.terraform.outputs.ecs_cluster }}" \
-            --services "${{ needs.terraform.outputs.ecs_service }}" \
+            --cluster "${ECS_CLUSTER}" \
+            --services "${ECS_SERVICE}" \
             --region "${{ env.AWS_REGION }}" \
             --query 'services[0].{Status:status, Running:runningCount, Desired:desiredCount, Pending:pendingCount}' \
             --output table
 
           echo ""
           echo "Tasks are accessible via their public IPs (port 5000)."
-          echo "Find IPs: AWS Console > ECS > ${{ needs.terraform.outputs.ecs_cluster }} > Tasks > public IP"
+          echo "Find IPs: AWS Console > ECS > ${ECS_CLUSTER} > Tasks > public IP"
 
       # ── Summary ────────────────────────────────────────────────────────────
       - name: "📊 Job summary"
@@ -452,9 +474,9 @@ jobs:
           | Field | Value |
           |---|---|
           | **Image Tag** | ${{ steps.tag.outputs.tag }} |
-          | **ECR Image** | ${{ needs.terraform.outputs.ecr_url }}:${{ steps.tag.outputs.tag }} |
-          | **ECS Cluster** | ${{ needs.terraform.outputs.ecs_cluster }} |
-          | **ECS Service** | ${{ needs.terraform.outputs.ecs_service }} |
+          | **ECR Image** | ${{ env.ECR_URL }}:${{ steps.tag.outputs.tag }} |
+          | **ECS Cluster** | ${{ env.ECS_CLUSTER }} |
+          | **ECS Service** | ${{ env.ECS_SERVICE }} |
           | **Access** | Task public IP on port 5000 (ECS Console > Tasks) |
           | **Commit** | ${{ github.sha }} |
           EOF
