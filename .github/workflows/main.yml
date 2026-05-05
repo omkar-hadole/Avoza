@@ -40,7 +40,7 @@ env:
   TF_VERSION:          "1.9.8"
 
 ###############################################################################
-# ── PHASE 1: Tests ────────────────────────────────────────────────────────────
+# ── PHASE 1: Tests ─────────────────────────────────────────────────────────
 ###############################################################################
 
 jobs:
@@ -140,7 +140,7 @@ jobs:
           retention-days: 7
 
 ###############################################################################
-# ── PHASE 2: Terraform ───────────────────────────────────────────────────────
+# ── PHASE 2: Terraform ─────────────────────────────────────────────────────
 ###############################################################################
 
   terraform:
@@ -304,7 +304,7 @@ jobs:
       ecs_service: ${{ steps.tf-outputs.outputs.ecs_service }}
 
 ###############################################################################
-# ── PHASE 3 + 4: Docker Build, Push & ECS Deploy ─────────────────────────────
+# ── PHASE 3 + 4: Docker Build, Push & ECS Deploy ───────────────────────────
 ###############################################################################
 
   deploy:
@@ -317,7 +317,7 @@ jobs:
       - name: "⬇️  Checkout"
         uses: actions/checkout@v4
 
-      # ── Compute deterministic image tag ─────────────────────────────────────
+      # ── Compute deterministic image tag ────────────────────────────────────
       - name: "🏷️  Compute image tag"
         id: tag
         run: |
@@ -326,7 +326,18 @@ jobs:
           echo "tag=$TAG" >> $GITHUB_OUTPUT
           echo "Image tag: $TAG"
 
-      # ── AWS credentials ─────────────────────────────────────────────────────
+      # ── Validate Terraform outputs ─────────────────────────────────────────
+      - name: "🔍 Validate Terraform outputs"
+        run: |
+          ECR_URL="${{ needs.terraform.outputs.ecr_url }}"
+          if [ -z "$ECR_URL" ] || [ "$ECR_URL" = "null" ]; then
+            echo "❌ ERROR: ECR URL is empty or null from Terraform outputs"
+            echo "This likely means Terraform did not apply successfully"
+            exit 1
+          fi
+          echo "✅ ECR URL is valid: $ECR_URL"
+
+      # ── AWS credentials ────────────────────────────────────────────────────
       - name: "🔑 Configure AWS credentials"
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -335,12 +346,12 @@ jobs:
           aws-session-token:     ${{ secrets.AWS_SESSION_TOKEN }}
           aws-region:            ${{ secrets.AWS_REGION }}
 
-      # ── ECR Login ───────────────────────────────────────────────────────────
+      # ── ECR Login ──────────────────────────────────────────────────────────
       - name: "🔐 Login to Amazon ECR"
         id: ecr-login
         uses: aws-actions/amazon-ecr-login@v2
 
-      # ── Docker layer cache ──────────────────────────────────────────────────
+      # ── Docker layer cache ────────────────────────────────────────────────
       - name: "💾 Cache Docker layers"
         uses: actions/cache@v4
         with:
@@ -348,11 +359,11 @@ jobs:
           key: buildx-${{ runner.os }}-${{ hashFiles('backend/package-lock.json', 'backend/Dockerfile') }}
           restore-keys: buildx-${{ runner.os }}-
 
-      # ── Setup Buildx ────────────────────────────────────────────────────────
+      # ── Setup Buildx ──────────────────────────────────────────────────────
       - name: "🔧 Set up Docker Buildx"
         uses: docker/setup-buildx-action@v3
 
-      # ── Build & Push ─────────────────────────────────────────────────────────
+      # ── Build & Push ──────────────────────────────────────────────────────
       - name: "🏗️  Build & Push Docker image"
         uses: docker/build-push-action@v5
         with:
@@ -371,13 +382,13 @@ jobs:
           build-args: |
             NODE_ENV=production
 
-      # ── Rotate cache (prevents unbounded growth) ─────────────────────────────
+      # ── Rotate cache (prevents unbounded growth) ──────────────────────────
       - name: "🔄 Rotate build cache"
         run: |
           rm -rf /tmp/.buildx-cache
           mv /tmp/.buildx-cache-new /tmp/.buildx-cache
 
-      # ── Update ECS task definition with new image ─────────────────────────────
+      # ── Update ECS task definition with new image ──────────────────────────
       - name: "📋 Get current task definition"
         id: get-task-def
         run: |
@@ -403,7 +414,7 @@ jobs:
           cluster:                ${{ needs.terraform.outputs.ecs_cluster }}
           wait-for-service-stability: true
 
-      # ── Post-deploy verification ──────────────────────────────────────────────
+      # ── Post-deploy verification ──────────────────────────────────────────
       - name: "✅ Verify deployment"
         run: |
           echo "Verifying ECS service health..."
@@ -418,7 +429,7 @@ jobs:
           echo "Tasks are accessible via their public IPs (port 5000)."
           echo "Find IPs: AWS Console > ECS > ${{ needs.terraform.outputs.ecs_cluster }} > Tasks > public IP"
 
-      # ── Summary ───────────────────────────────────────────────────────────────
+      # ── Summary ────────────────────────────────────────────────────────────
       - name: "📊 Job summary"
         if: always()
         run: |
@@ -436,7 +447,7 @@ jobs:
           EOF
 
 ###############################################################################
-# ── Automatic rollback on deploy failure ──────────────────────────────────────
+# ── Automatic rollback on deploy failure ───────────────────────────────────
 ###############################################################################
 
   rollback:
