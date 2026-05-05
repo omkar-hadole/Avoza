@@ -3,11 +3,15 @@
 # Idempotent S3 bucket: versioning + encryption + public-access block
 ###############################################################################
 
+resource "random_id" "bucket_suffix" {
+  byte_length = 4
+}
+
 resource "aws_s3_bucket" "app" {
-  bucket = "${var.bucket_name}-${var.environment}"
+  bucket = "${var.bucket_name}-${var.environment}-${random_id.bucket_suffix.hex}"
 
   tags = {
-    Name        = "${var.bucket_name}-${var.environment}"
+    Name        = "${var.bucket_name}-${var.environment}-${random_id.bucket_suffix.hex}"
     Project     = var.project
     Environment = var.environment
     ManagedBy   = "Terraform"
