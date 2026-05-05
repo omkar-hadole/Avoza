@@ -7,7 +7,7 @@ on:
     branches: [main, develop]
 
 jobs:
-  # ─── Backend ──────────────────────────────────────────────────────────────
+
   backend:
     name: Backend – Lint, Test & Build
     runs-on: ubuntu-latest

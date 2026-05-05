@@ -1,0 +1,28 @@
+###############################################################################
+# terraform/terraform.tfvars.example
+# Copy to terraform.tfvars and fill in real values.
+# NEVER commit terraform.tfvars — it is gitignored.
+###############################################################################
+
+aws_region   = "us-east-1"
+project_name = "avoza"
+environment  = "production"
+
+# Networking — replace with your actual VPC / subnets
+vpc_id     = "vpc-xxxxxxxxxxxxxxxxx"
+subnet_ids = ["subnet-xxxxxxxxxxxxxxxxx", "subnet-yyyyyyyyyyyyyyyyy"]
+
+# S3 + ECR
+s3_bucket_name      = "avoza-app-assets-prod"
+ecr_repository_name = "avoza-backend"
+
+# ECS sizing
+container_port = 5000
+task_cpu       = 256
+task_memory    = 512
+desired_count  = 1
+
+# Secrets — injected by CI via TF_VAR_* env vars; shown here for reference only
+# mongo_uri  = "mongodb+srv://..."
+# jwt_secret = "..."
+node_env = "production"
