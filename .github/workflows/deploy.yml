@@ -148,17 +148,18 @@ jobs:
       - name: Build, tag, and push image to Amazon ECR
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          ECR_URL: ${{ needs.terraform.outputs.ecr_url }}
           IMAGE_TAG: ${{ github.sha }}
         working-directory: ./backend
         run: |
+          ECR_URL="${ECR_REGISTRY}/avoza-backend-production"
           docker build -t $ECR_URL:$IMAGE_TAG -t $ECR_URL:latest .
           docker push $ECR_URL:$IMAGE_TAG
           docker push $ECR_URL:latest
+          echo "ECR_URL=$ECR_URL" >> $GITHUB_ENV
 
       - name: Download Task Definition
         env:
-          ECS_SERVICE: ${{ needs.terraform.outputs.ecs_service }}
+          ECS_SERVICE: "avoza-service-production"
         run: |
           aws ecs describe-task-definition --task-definition $ECS_SERVICE --query taskDefinition --output json > task-def.json
 
@@ -168,20 +169,20 @@ jobs:
         with:
           task-definition: task-def.json
           container-name: avoza-backend
-          image: ${{ needs.terraform.outputs.ecr_url }}:${{ github.sha }}
+          image: ${{ env.ECR_URL }}:${{ github.sha }}
 
       - name: Deploy Amazon ECS task definition
         uses: aws-actions/amazon-ecs-deploy-task-definition@v1
         with:
           task-definition: ${{ steps.task-def.outputs.task-definition }}
-          service: ${{ needs.terraform.outputs.ecs_service }}
-          cluster: ${{ needs.terraform.outputs.ecs_cluster }}
+          service: "avoza-service-production"
+          cluster: "avoza-cluster-production"
           wait-for-service-stability: true
 
       - name: Verify Service Status
         env:
-          ECS_CLUSTER: ${{ needs.terraform.outputs.ecs_cluster }}
-          ECS_SERVICE: ${{ needs.terraform.outputs.ecs_service }}
+          ECS_CLUSTER: "avoza-cluster-production"
+          ECS_SERVICE: "avoza-service-production"
         run: |
           STATUS=$(aws ecs describe-services --cluster $ECS_CLUSTER --services $ECS_SERVICE --query "services[0].status" --output text)
           if [ "$STATUS" != "ACTIVE" ]; then
