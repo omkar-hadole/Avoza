@@ -22,10 +22,7 @@
 name: "🚀 Avoza CI/CD Pipeline"
 
 on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
+  workflow_dispatch:
 
 # Cancel any in-progress run for the same branch/PR (saves minutes)
 concurrency:
