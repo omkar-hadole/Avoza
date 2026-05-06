@@ -8,7 +8,49 @@ env:
   TF_VAR_aws_region: ${{ secrets.AWS_REGION }}
 
 jobs:
+  check-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      should_deploy: ${{ steps.check.outputs.should_deploy }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Check for changes since last deployment
+        id: check
+        run: |
+          CURRENT_IMAGE=$(aws ecs describe-task-definition --task-definition avoza-production --query 'taskDefinition.containerDefinitions[?name==`avoza-backend`].image' --output text 2>/dev/null || echo "")
+          if [ -n "$CURRENT_IMAGE" ] && [[ "$CURRENT_IMAGE" == *":"* ]]; then
+            CURRENT_SHA="${CURRENT_IMAGE##*:}"
+            if [ "$CURRENT_SHA" == "${{ github.sha }}" ]; then
+              echo "Exact commit already deployed. Skipping deployment."
+              echo "should_deploy=false" >> $GITHUB_OUTPUT
+              exit 0
+            fi
+            if git rev-parse --verify "$CURRENT_SHA" >/dev/null 2>&1; then
+              CHANGES=$(git diff --name-only "$CURRENT_SHA" "${{ github.sha }}" | grep -E '^(backend/|frontend/|terraform/|\.github/workflows/)' || true)
+              if [ -z "$CHANGES" ]; then
+                echo "No relevant changes found since last deployment ($CURRENT_SHA). Skipping."
+                echo "should_deploy=false" >> $GITHUB_OUTPUT
+                exit 0
+              fi
+            fi
+          fi
+          echo "Changes detected or first deployment. Proceeding."
+          echo "should_deploy=true" >> $GITHUB_OUTPUT
+
   test:
+    needs: check-changes
+    if: needs.check-changes.outputs.should_deploy == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -44,7 +86,8 @@ jobs:
           path: backend/test-results/*.xml
 
   terraform:
-    needs: test
+    needs: [check-changes, test]
+    if: needs.check-changes.outputs.should_deploy == 'true'
     runs-on: ubuntu-latest
     outputs:
       ecr_url: ${{ steps.tf-out.outputs.ecr_url }}
@@ -130,7 +173,8 @@ jobs:
           echo "ecs_service=$(terraform output -raw ecs_service_name)" >> $GITHUB_OUTPUT
 
   deploy:
-    needs: terraform
+    needs: [check-changes, terraform]
+    if: needs.check-changes.outputs.should_deploy == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
