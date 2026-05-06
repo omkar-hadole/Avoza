@@ -153,7 +153,7 @@ jobs:
           IMAGE_TAG: ${{ github.sha }}
         working-directory: ./backend
         run: |
-          ECR_URL="${{ needs.terraform.outputs.ecr_url }}"
+          ECR_URL="${ECR_REGISTRY}/avoza-backend-production"
           docker build -t $ECR_URL:$IMAGE_TAG -t $ECR_URL:latest .
           docker push $ECR_URL:$IMAGE_TAG
           docker push $ECR_URL:latest
@@ -165,7 +165,7 @@ jobs:
           IMAGE_TAG: ${{ github.sha }}
         working-directory: ./frontend
         run: |
-          ECR_FRONTEND_URL="${{ needs.terraform.outputs.ecr_frontend_url }}"
+          ECR_FRONTEND_URL="${ECR_REGISTRY}/avoza-frontend-production"
           docker build -t $ECR_FRONTEND_URL:$IMAGE_TAG -t $ECR_FRONTEND_URL:latest .
           docker push $ECR_FRONTEND_URL:$IMAGE_TAG
           docker push $ECR_FRONTEND_URL:latest
