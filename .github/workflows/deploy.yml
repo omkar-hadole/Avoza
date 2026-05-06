@@ -48,6 +48,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       ecr_url: ${{ steps.tf-out.outputs.ecr_url }}
+      ecr_frontend_url: ${{ steps.tf-out.outputs.ecr_frontend_url }}
       ecs_cluster: ${{ steps.tf-out.outputs.ecs_cluster }}
       ecs_service: ${{ steps.tf-out.outputs.ecs_service }}
     steps:
@@ -124,6 +125,7 @@ jobs:
         working-directory: ./terraform
         run: |
           echo "ecr_url=$(terraform output -raw ecr_repository_url)" >> $GITHUB_OUTPUT
+          echo "ecr_frontend_url=$(terraform output -raw ecr_frontend_repository_url)" >> $GITHUB_OUTPUT
           echo "ecs_cluster=$(terraform output -raw ecs_cluster_name)" >> $GITHUB_OUTPUT
           echo "ecs_service=$(terraform output -raw ecs_service_name)" >> $GITHUB_OUTPUT
 
@@ -145,17 +147,29 @@ jobs:
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Build, tag, and push image to Amazon ECR
+      - name: Build, tag, and push backend image to Amazon ECR
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           IMAGE_TAG: ${{ github.sha }}
         working-directory: ./backend
         run: |
-          ECR_URL="${ECR_REGISTRY}/avoza-backend-production"
+          ECR_URL="${{ needs.terraform.outputs.ecr_url }}"
           docker build -t $ECR_URL:$IMAGE_TAG -t $ECR_URL:latest .
           docker push $ECR_URL:$IMAGE_TAG
           docker push $ECR_URL:latest
           echo "ECR_URL=$ECR_URL" >> $GITHUB_ENV
+
+      - name: Build, tag, and push frontend image to Amazon ECR
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
+        working-directory: ./frontend
+        run: |
+          ECR_FRONTEND_URL="${{ needs.terraform.outputs.ecr_frontend_url }}"
+          docker build -t $ECR_FRONTEND_URL:$IMAGE_TAG -t $ECR_FRONTEND_URL:latest .
+          docker push $ECR_FRONTEND_URL:$IMAGE_TAG
+          docker push $ECR_FRONTEND_URL:latest
+          echo "ECR_FRONTEND_URL=$ECR_FRONTEND_URL" >> $GITHUB_ENV
 
       - name: Download Task Definition
         env:
@@ -163,18 +177,26 @@ jobs:
         run: |
           aws ecs describe-task-definition --task-definition $TASK_DEF_FAMILY --query taskDefinition --output json > task-def.json
 
-      - name: Fill in the new image ID in the Amazon ECS task definition
-        id: task-def
+      - name: Fill in the new backend image ID in the Amazon ECS task definition
+        id: task-def-backend
         uses: aws-actions/amazon-ecs-render-task-definition@v1
         with:
           task-definition: task-def.json
           container-name: avoza-backend
           image: ${{ env.ECR_URL }}:${{ github.sha }}
 
+      - name: Fill in the new frontend image ID in the Amazon ECS task definition
+        id: task-def-frontend
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: ${{ steps.task-def-backend.outputs.task-definition }}
+          container-name: avoza-frontend
+          image: ${{ env.ECR_FRONTEND_URL }}:${{ github.sha }}
+
       - name: Deploy Amazon ECS task definition
         uses: aws-actions/amazon-ecs-deploy-task-definition@v1
         with:
-          task-definition: ${{ steps.task-def.outputs.task-definition }}
+          task-definition: ${{ steps.task-def-frontend.outputs.task-definition }}
           service: "avoza-service-production"
           cluster: "avoza-cluster-production"
           wait-for-service-stability: true

@@ -31,6 +31,11 @@ variable "ecr_repository_name" {
   default = "avoza-backend"
 }
 
+variable "ecr_frontend_repository_name" {
+  type    = string
+  default = "avoza-frontend"
+}
+
 variable "image_tag" {
   type    = string
   default = "latest"
@@ -41,14 +46,19 @@ variable "container_port" {
   default = 5000
 }
 
+variable "frontend_container_port" {
+  type    = number
+  default = 80
+}
+
 variable "task_cpu" {
   type    = number
-  default = 256
+  default = 512
 }
 
 variable "task_memory" {
   type    = number
-  default = 512
+  default = 1024
 }
 
 variable "desired_count" {

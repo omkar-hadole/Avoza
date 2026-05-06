@@ -28,6 +28,10 @@ app.get('/api/health', (req, res) => {
   res.status(200).json({ status: 'ok', message: 'API is running' });
 });
 
+app.get('/', (req, res) => {
+  res.send('Avoza Backend API is running. Access /api/health to check health status.');
+});
+
 app.use((err, req, res, next) => {
   const statusCode = res.statusCode === 200 ? 500 : res.statusCode;
   res.status(statusCode).json({

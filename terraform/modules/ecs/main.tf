@@ -39,6 +39,14 @@ resource "aws_security_group" "ecs_tasks" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
+  ingress {
+    description = "Frontend port"
+    from_port   = var.frontend_container_port
+    to_port     = var.frontend_container_port
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
   egress {
     from_port   = 0
     to_port     = 0
@@ -100,6 +108,34 @@ resource "aws_ecs_task_definition" "app" {
 
   container_definitions = jsonencode([
     {
+      name      = "${var.project}-frontend"
+      image     = var.frontend_ecr_image_uri
+      essential = true
+
+      portMappings = [
+        {
+          containerPort = var.frontend_container_port
+          protocol      = "tcp"
+        }
+      ]
+
+      environment = [
+        { name = "VITE_API_URL", value = "http://localhost:${var.container_port}" }
+      ]
+
+      logConfiguration = {
+        logDriver = "awslogs"
+        options = {
+          "awslogs-group"         = aws_cloudwatch_log_group.app.name
+          "awslogs-region"        = var.aws_region
+          "awslogs-stream-prefix" = "ecs-frontend"
+        }
+      }
+
+      cpu    = 256
+      memory = 512
+    },
+    {
       name      = "${var.project}-backend"
       image     = var.ecr_image_uri
       essential = true
@@ -135,8 +171,8 @@ resource "aws_ecs_task_definition" "app" {
         }
       }
 
-      cpu    = var.task_cpu
-      memory = var.task_memory
+      cpu    = 256
+      memory = 512
     }
   ])
 

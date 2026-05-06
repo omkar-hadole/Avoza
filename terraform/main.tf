@@ -47,6 +47,13 @@ module "ecr" {
   project         = var.project_name
 }
 
+module "ecr_frontend" {
+  source          = "./modules/ecr"
+  repository_name = var.ecr_frontend_repository_name
+  environment     = var.environment
+  project         = var.project_name
+}
+
 module "ecs" {
   source = "./modules/ecs"
 
@@ -55,9 +62,11 @@ module "ecs" {
   aws_region     = var.aws_region
   account_id     = data.aws_caller_identity.current.account_id
 
-  ecr_image_uri  = "${module.ecr.repository_url}:${var.image_tag}"
+  ecr_image_uri           = "${module.ecr.repository_url}:${var.image_tag}"
+  frontend_ecr_image_uri  = "${module.ecr_frontend.repository_url}:${var.image_tag}"
 
-  container_port = var.container_port
+  container_port          = var.container_port
+  frontend_container_port = var.frontend_container_port
   task_cpu       = var.task_cpu
   task_memory    = var.task_memory
   desired_count  = var.desired_count

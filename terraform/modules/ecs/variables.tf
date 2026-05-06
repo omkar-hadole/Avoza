@@ -23,6 +23,16 @@ variable "ecr_image_uri" {
   type        = string
 }
 
+variable "frontend_ecr_image_uri" {
+  description = "Full ECR image URI including tag for frontend"
+  type        = string
+}
+
+variable "frontend_container_port" {
+  type    = number
+  default = 80
+}
+
 variable "container_port" {
   type    = number
   default = 5000
